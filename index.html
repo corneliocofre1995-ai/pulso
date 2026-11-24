@@ -119,17 +119,17 @@ button:focus-visible{outline:3px solid var(--amber);outline-offset:2px}
 #stage.center{justify-content:safe center;overflow-y:auto}
 #stage.center .vis{flex:none;padding:8px 14px 14px;overflow:visible}
 #stage.center .stim{height:auto;padding:0;max-width:460px}
-#stage.center .answers{max-width:460px;padding-bottom:14px}
+#stage.center .answers{max-width:min(460px,100%);padding-bottom:14px;box-sizing:border-box}
 #stage.center .answers button{min-height:64px;font-size:clamp(24px,7vw,34px)}
-#stage.center .answers.sq button{aspect-ratio:4/3;min-height:0;font-size:clamp(30px,9vw,44px)}
+#stage.center .answers.sq button{aspect-ratio:4/3;min-height:0;font-size:clamp(24px,min(9vw,5.5vh),44px)}
 #stage.center .answers.k4{gap:8px}
-#stage.center .answers.k4 button{aspect-ratio:1;font-size:clamp(22px,6.5vw,34px)}
-#stage.center .box{height:min(28vh,260px)}
-#stage.center .dots{width:min(58vw,230px)}
-#stage.center .pie{width:min(46vw,190px)}
-#stage.center .frames{width:min(70vw,280px)}
-#stage.center .word{font-size:clamp(46px,13vw,90px)}
-#stage.center .arrow{font-size:clamp(90px,26vw,150px)}
+#stage.center .answers.k4 button{aspect-ratio:1;font-size:clamp(20px,min(6.5vw,4.5vh),34px)}
+#stage.center .box{height:min(26vh,240px);width:min(92vw,520px,110vh)}
+#stage.center .dots{width:min(58vw,230px,30vh)}
+#stage.center .pie{width:min(46vw,190px,26vh)}
+#stage.center .frames{width:min(70vw,280px,40vh)}
+#stage.center .word{font-size:clamp(40px,min(13vw,11vh),90px)}
+#stage.center .arrow{font-size:clamp(70px,min(26vw,20vh),150px)}
 .msg.intro{min-height:0;max-width:460px}
 .msg .seg{display:inline-flex;margin:18px auto 2px;background:rgba(255,255,255,.08);border-radius:12px;padding:3px;gap:3px}
 .msg .seg button{border:0;background:none;border-radius:9px;padding:10px 22px;font:600 16px/1 var(--body);color:var(--stage-ink);opacity:.7}
@@ -326,6 +326,17 @@ function bounce(box,els,speed){const W=box.clientWidth,H=box.clientHeight;
     if(s.y<0||s.y>H-50){s.vy*=-1;s.y=Math.max(0,Math.min(H-50,s.y))}});draw()})}
 
 /* ---------- motores ---------- */
+function fitStage(){
+  const el=stage.querySelector('.answers.sq')||stage.querySelector('.grid');if(!el)return;
+  el.style.maxWidth='';el.style.width='';
+  const st=stage.querySelector('.stim .box,.stim .dots,.stim .pie,.stim .frames');
+  if(st)st.style.removeProperty('zoom');
+  const over=()=>{if(stage.scrollHeight>stage.clientHeight+1)return true;const v=el.closest('.vis');if(!v)return false;const r=el.getBoundingClientRect(),q=v.getBoundingClientRect();return r.bottom>q.bottom+1||r.top<q.top-1};
+  if(!over())return;
+  let w=el.getBoundingClientRect().width,n=0;
+  while(over()&&w>150&&n++<60){w-=10;el.style.maxWidth=w+'px';el.style.width=w+'px'}
+}
+window.addEventListener('resize',()=>{if(current)fitStage()});
 function settings(cfg){const id=current&&current.id;const c={};
   if(cfg.pickRounds){let R=Math.min(20,Math.max(5,store.get('pulso:rounds:'+id)||cfg.N||10));c.rounds={get:()=>R,set:v=>{R=v;store.set('pulso:rounds:'+id,v)}}}
   if(cfg.sizes){let S=store.get('pulso:grid:'+id);if(S!==3&&S!==4)S=3;c.size={get:()=>S,set:v=>{S=v;store.set('pulso:grid:'+id,v)}}}
@@ -353,15 +364,17 @@ function countdown(cb){
   const tick=()=>{if(n===0){o.remove();return cb()}o.innerHTML=`<b>${n}</b>`;n--;later(tick,800)};tick();
 }
 
-function simpleRT(cfg,done){
+function simpleRT(cfg,done){const ctl=settings({pickRounds:true,N:Math.max(5,cfg.attempts)});
+  intro(cfg.intro,()=>simpleRTrun({...cfg,attempts:ctl.rounds.get()},done),ctl)}
+function simpleRTrun(cfg,done){
   stage.innerHTML='<div class="vis"></div><div class="msg"></div>';
   const vis=stage.querySelector('.vis'),msg=stage.querySelector('.msg');
   cfg.build(vis);
-  let phase='ready',t0=0,started=false;const rts=[];
+  let phase='ready',t0=0,started=true;const rts=[];
   const api={fire(offset=0){phase='go';t0=now()+offset}};
   const say=(big,small)=>{msg.innerHTML=(big?`<b>${big}</b>`:'')+`<span>${small}</span>`;msg.hidden=false};
   const ready=(big,small)=>{phase='ready';cfg.reset(vis);say(big,small)};
-  ready('',cfg.intro+'<span class="tap">Toca para empezar</span>');setProgress(0,cfg.attempts);
+  setProgress(0,cfg.attempts);msg.hidden=true;phase='waiting';cfg.arm(vis,api);
   function act(){
     if(phase==='ready'){msg.hidden=true;
       if(!started){started=true;phase='cd';countdown(()=>{phase='waiting';cfg.arm(vis,api)})}
@@ -378,7 +391,7 @@ function simpleRT(cfg,done){
   keyHandler=e=>{if(e.code==='Space'||e.key==='Enter')act()};
 }
 
-function choice(cfg){return done=>{const ctl=settings(cfg);
+function choice(cfg){return done=>{const ctl=settings({...cfg,pickRounds:true});
  intro(cfg.intro,()=>{const R=ctl.rounds?ctl.rounds.get():(cfg.N||15);const S=ctl.size?ctl.size.get():0;
   stage.innerHTML='<div class="vis"><div class="stim"></div></div><div class="answers"></div>';stage.classList.add('center');
   const vis=stage.querySelector('.vis'),stim=stage.querySelector('.stim'),ans=stage.querySelector('.answers');
@@ -391,7 +404,7 @@ function choice(cfg){return done=>{const ctl=settings(cfg);
     const nc=cur.cols||cfg.cols||Math.min(cur.opts.length,4);ans.style.gridTemplateColumns=`repeat(${nc},1fr)`;ans.className='answers'+(nc>=3&&cur.opts.length>=nc*2?' sq k'+nc:'');
     ans.innerHTML=cur.opts.map((o,k)=>`<button data-k="${k}">${o}</button>`).join('');
     ans.querySelectorAll('button').forEach(b=>b.onpointerdown=e=>{e.preventDefault();e.stopPropagation();choose(+b.dataset.k,b)});
-    const begin=()=>{locked=false;t0=now()};
+    fitStage();const begin=()=>{locked=false;t0=now()};
     cur.setup?cur.setup(stim,begin):begin();
   };
   const choose=(k,b)=>{
@@ -417,9 +430,9 @@ function choice(cfg){return done=>{const ctl=settings(cfg);
   next();
 },ctl)}}
 
-function gng(cfg){return done=>intro(cfg.intro,()=>{
+function gng(cfg){return done=>{const ctl=settings({...cfg,pickRounds:true,N:cfg.N||20});intro(cfg.intro,()=>{
   stage.innerHTML='<div class="vis field"></div>';const f=stage.querySelector('.vis');
-  const N=cfg.N||20;let i=0,phase='gap',t0=0,isGo=false,resp=false,com=0,om=0;const rts=[];setProgress(0,N);
+  const N=ctl.rounds.get();let i=0,phase='gap',t0=0,isGo=false,resp=false,com=0,om=0;const rts=[];setProgress(0,N);
   const next=()=>{
     if(i>=N){phase='done';return done({score:mean(rts),detail:`${pl(com,'toque','toques')} sin señal y ${pl(om,'señal','señales')} sin responder.`})}
     phase='gap';f.innerHTML='';later(show,rand(...(cfg.gap||[500,1200])))};
@@ -429,17 +442,17 @@ function gng(cfg){return done=>intro(cfg.intro,()=>{
   stage.onpointerdown=e=>{e.preventDefault();act()};
   keyHandler=e=>{if(e.code==='Space'||e.key==='Enter')act()};
   next();
-})}
+},ctl)}}
 
-function gridTap(cfg){return done=>{const ctl=settings(cfg);intro(cfg.intro,()=>{const S=ctl.size?ctl.size.get():5;
+function gridTap(cfg){return done=>{const ctl=settings({...cfg,pickRounds:true,N:Math.max(5,cfg.rounds||5)});intro(cfg.intro,()=>{const S=ctl.size?ctl.size.get():5;
   stage.innerHTML='<div class="vis"><div class="grid"></div></div><div class="msg small"><span class="hint"></span></div>';
   const g=stage.querySelector('.grid'),hint=stage.querySelector('.hint');
-  const R=cfg.rounds||1;let r=0,errors=0;const t0=now();
+  const R=ctl.rounds.get();let r=0,errors=0;const t0=now();
   const round=()=>{
     if(r>=R)return done({score:(now()-t0)/1000,detail:`${pl(errors,'error','errores')} en ${pl(R,'ronda','rondas')}.`});
     const d=cfg.round(r,S);r++;setProgress(r,R);hint.innerHTML=d.hint||'';
     g.style.gridTemplateColumns=`repeat(${d.cols},1fr)`;
-    g.innerHTML=d.cells.map((c,k)=>`<button data-k="${k}">${c}</button>`).join('');
+    g.innerHTML=d.cells.map((c,k)=>`<button data-k="${k}">${c}</button>`).join('');fitStage();
     const left=new Set(d.targets);let pos=0;
     g.querySelectorAll('button').forEach(b=>b.onpointerdown=e=>{e.preventDefault();
       const k=+b.dataset.k;if(b.classList.contains('done')||!left.size)return;
@@ -459,7 +472,7 @@ function memGrid(cfg){return done=>{const ctl=settings(cfg);intro(cfg.intro,()=>
     $('#prog').textContent=`Nivel ${L}   ${'♥'.repeat(lives)}`;
     g.style.transition='none';g.style.transform='';g.offsetWidth;g.style.transition='';
     g.style.gridTemplateColumns=`repeat(${d.cols},1fr)`;
-    g.innerHTML=d.show.map((c,k)=>`<button data-k="${k}" disabled>${c}</button>`).join('');
+    g.innerHTML=d.show.map((c,k)=>`<button data-k="${k}" disabled>${c}</button>`).join('');fitStage();
     hint.textContent='Memoriza';
     later(()=>{
       const bs=[...g.children];bs.forEach(b=>b.innerHTML='');
@@ -524,9 +537,9 @@ def({...RT,id:'parada',cat:C1,name:'Parada en seco',desc:'La bola se mueve. Toca
   arm(v,api){const box=v.querySelector('.box'),b=box.firstChild;b.classList.remove('go');bounce(box,[b],rand(220,320));
     later(()=>{stopLoop();b.classList.add('go');api.fire()},rand(2000,5000))}},d)});
 def({id:'cero',cat:C1,name:'Cuenta a cero',metric:'error medio respecto a cero',desc:'El contador se oculta a mitad. Para en el cero exacto.',
- run:done=>intro('Un contador baja desde 3. Al llegar a 1,5 se oculta. Toca cuando creas que marca cero.',()=>{
+ run:done=>{const ctl=settings({pickRounds:true,N:5});intro('Un contador baja desde 3. Al llegar a 1,5 se oculta. Toca cuando creas que marca cero.',()=>{
   stage.innerHTML='<div class="vis"><div class="word" id="tm">3,00</div></div><div class="msg"></div>';
-  const tm=$('#tm'),msg=stage.querySelector('.msg');const N=5,errs=[];let running=false,t0=0;
+  const tm=$('#tm'),msg=stage.querySelector('.msg');const N=ctl.rounds.get(),errs=[];let running=false,t0=0;
   const stop=forced=>{if(!running)return;running=false;stopLoop();const r=3000-(now()-t0);const e=forced||Math.abs(r);
     errs.push(e);setProgress(errs.length,N);tm.textContent=dec(r/1000);
     msg.innerHTML=`<b>${Math.round(e)} ms</b><span>${forced?'No respondiste.':r>0?'Te adelantaste.':'Llegaste tarde.'} ${errs.length<N?'Toca para el siguiente.':''}</span>`;
@@ -536,7 +549,7 @@ def({id:'cero',cat:C1,name:'Cuenta a cero',metric:'error medio respecto a cero',
   const act=()=>{if(running)stop();else if(errs.length<N)one()};
   stage.onpointerdown=e=>{e.preventDefault();act()};keyHandler=e=>{if(e.code==='Space'||e.key==='Enter')act()};
   setProgress(0,N);one();
- })});
+ },ctl)}});
 def({id:'clics',cat:C1,name:'Toques en 10 segundos',unit:'toques',hi:true,metric:'toques en 10 segundos',desc:'Toca la pantalla tantas veces como puedas.',
  run:done=>intro('Toca la pantalla, o pulsa la barra espaciadora, tantas veces como puedas durante 10 segundos.',()=>{
   stage.innerHTML='<div class="vis"><div class="word" id="cc">0</div></div><div class="msg"><b id="tl">10,0</b><span>segundos</span></div>';
@@ -622,9 +635,9 @@ def({sizes:true,id:'mayor',cat:C3,name:'Número mayor',desc:'Mirando al centro, 
   trial(i,K){const b=ri(25,75);const s=new Set();while(s.size<K)s.add(b+ri(-20,20));const opts=shuffle([...s]);
    return{show:'<div class="fix">+</div>',opts,ans:opts.indexOf(Math.max(...opts)),cols:Math.sqrt(K)}}})});
 def({id:'periferica',cat:C3,name:'Dianas periféricas',metric:'tiempo medio por diana',desc:'Mira el centro y toca las dianas de los bordes.',
- run:done=>intro('Mantén la vista en la cruz. Toca cada diana que aparezca cerca de los bordes.',()=>{
+ run:done=>{const ctl=settings({pickRounds:true,N:12});intro('Mantén la vista en la cruz. Toca cada diana que aparezca cerca de los bordes.',()=>{
   stage.innerHTML='<div class="vis field"><div class="fix">+</div></div>';
-  const field=stage.querySelector('.field');const N=12;let i=0,phase='gap',t0=0,miss=0,wrong=0;const rts=[];setProgress(0,N);
+  const field=stage.querySelector('.field');const N=ctl.rounds.get();let i=0,phase='gap',t0=0,miss=0,wrong=0;const rts=[];setProgress(0,N);
   const next=()=>{if(i>=N){phase='done';return done({score:mean(rts),detail:`${rts.length} de ${N} dianas a tiempo y ${pl(wrong,'toque','toques')} fuera.`})}
     phase='gap';later(show,rand(500,1300))};
   const show=()=>{const r=field.getBoundingClientRect(),a=Math.random()*Math.PI*2;
@@ -635,7 +648,7 @@ def({id:'periferica',cat:C3,name:'Dianas periféricas',metric:'tiempo medio por 
     later(()=>{if(phase==='stim'&&t.isConnected){miss++;t.remove();next()}},2000)};
   stage.onpointerdown=e=>{e.preventDefault();if(phase==='stim')wrong++};
   next();
- })});
+ },ctl)}});
 def({id:'espacial',cat:C3,name:'Giro mental',desc:'Decide si la segunda tabla es la primera girada.',
  run:choice({N:15,cols:2,intro:'Decide si la tabla de la derecha es la de la izquierda girada un cuarto de vuelta.',
   trial(){const cells=shuffle([...Array(9).keys()]).slice(0,4);const rot=k=>(k%3)*3+(2-Math.floor(k/3));
@@ -650,7 +663,7 @@ def({sizes:true,id:'regla',cat:C3,name:'Elige según la regla',desc:'Mayor, meno
    else{const want=r==='par'?0:1;t=2*ri(5,49)+want;const s=new Set();while(s.size<K-1)s.add(2*ri(5,49)+(1-want));nums=[t,...s]}
    const opts=shuffle(nums);return{show:`<div class="banner">El ${r}</div>`,opts,ans:opts.indexOf(t),cols:Math.sqrt(K)}}})});
 def({sizes:true,...GR,id:'capturar',cat:C3,name:'Captura el color',desc:'Toca todas las celdas del color indicado.',
- run:gridTap({sizes:true,rounds:5,intro:'Toca todas las celdas del color que se indica abajo. Cinco rondas contra el reloj.',
+ run:gridTap({sizes:true,rounds:5,intro:'Toca todas las celdas del color que se indica abajo, contra el reloj.',
   round(r,S){const cs=shuffle(PAL).slice(0,4),t=ri(0,3);const a=[...Array(S*S)].map(()=>ri(0,3));
    let n=a.filter(x=>x===t).length;while(n<S-1){const k=ri(0,S*S-1);if(a[k]!==t){a[k]=t;n++}}
    return{cols:S,cells:a.map(x=>`<i class="sw" style="background:${cs[x].c}"></i>`),targets:a.map((x,k)=>x===t?k:-1).filter(k=>k>=0),
@@ -779,25 +792,25 @@ def({sizes:true,...MEM,id:'nueva',cat:C5,name:'Figura nueva',desc:'Cada ronda ap
 
 /* Coordinación */
 def({...GR,id:'diana',cat:C6,name:'Puntería rápida',desc:'Elimina 20 dianas que aparecen en cualquier punto.',
- run:done=>intro('Toca cada diana en cuanto aparezca. Cuenta el tiempo total y los fallos.',()=>{
+ run:done=>{const ctl=settings({pickRounds:true,N:20});intro('Toca cada diana en cuanto aparezca. Cuenta el tiempo total y los fallos.',()=>{
   stage.innerHTML='<div class="vis field"></div>';const field=stage.querySelector('.field');
-  const N=20;let i=0,miss=0;setProgress(0,N);const t0=now();
+  const N=ctl.rounds.get();let i=0,miss=0;setProgress(0,N);const t0=now();
   const spawn=()=>{const r=field.getBoundingClientRect();const t=document.createElement('button');t.className='tgt';t.setAttribute('aria-label','Diana');
     t.style.left=rand(36,r.width-36)+'px';t.style.top=rand(36,r.height-36)+'px';
     t.onpointerdown=e=>{e.preventDefault();e.stopPropagation();t.remove();i++;setProgress(i,N);
       if(i>=N)done({score:(now()-t0)/1000,detail:`${pl(miss,'fallo','fallos')} fuera de la diana.`});else spawn()};
     field.appendChild(t)};
   stage.onpointerdown=e=>{e.preventDefault();miss++};spawn();
- })});
+ },ctl)}});
 def({id:'pelota',cat:C6,name:'Atrapa la pelota',metric:'tiempo medio por captura',desc:'Atrapa la pelota en movimiento, cada vez más rápida.',
- run:done=>intro('Toca la pelota mientras se mueve. Cada una va más rápida que la anterior.',()=>{
+ run:done=>{const ctl=settings({pickRounds:true,N:10});intro('Toca la pelota mientras se mueve. Cada una va más rápida que la anterior.',()=>{
   stage.innerHTML='<div class="vis field"></div>';const f=stage.querySelector('.field');
-  const N=10;let i=0,miss=0,t0=0;const rts=[];setProgress(0,N);
+  const N=ctl.rounds.get();let i=0,miss=0,t0=0;const rts=[];setProgress(0,N);
   const spawn=()=>{f.innerHTML='<button class="ball" aria-label="Pelota"></button>';const b=f.firstChild;bounce(f,[b],170+i*35);t0=now();
     b.onpointerdown=e=>{e.preventDefault();e.stopPropagation();rts.push(now()-t0);i++;setProgress(i,N);stopLoop();f.innerHTML='';
       if(i>=N)done({score:mean(rts),detail:`${pl(miss,'toque fallido','toques fallidos')}.`});else later(spawn,rand(300,800))}};
   stage.onpointerdown=e=>{e.preventDefault();miss++};spawn();
- })});
+ },ctl)}});
 def({...GR,id:'bolas',cat:C6,name:'Muchas bolas',desc:'Atrapa todas las bolas que rebotan por la pantalla.',
  run:done=>intro('Ocho bolas rebotan a la vez. Atrápalas todas lo antes posible.',()=>{
   stage.innerHTML='<div class="vis field"></div>';const f=stage.querySelector('.field');
