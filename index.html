@@ -147,6 +147,10 @@ button:focus-visible{outline:3px solid var(--amber);outline-offset:2px}
 .lights{display:flex;gap:clamp(8px,3vw,22px);padding:22px;background:#05090D;border-radius:18px}
 .lights i{width:clamp(42px,13vw,90px);aspect-ratio:1;border-radius:50%;background:#2A1414;box-shadow:inset 0 -6px 0 rgba(0,0,0,.4)}
 .lights i.on{background:#FF3B2E;box-shadow:0 0 28px #FF3B2E,inset 0 -6px 0 rgba(0,0,0,.25)}
+.tre .lamp{position:absolute;width:clamp(72px,min(26vw,22vh),150px);height:clamp(72px,min(26vw,22vh),150px);border-radius:50%;border:0;padding:0;background:#2A2F36;box-shadow:inset 0 -6px 0 rgba(0,0,0,.35)}
+.tre .l0{left:9%;top:10%} .tre .l1{right:13%;top:17%} .tre .l2{left:17%;bottom:13%} .tre .l3{right:9%;bottom:9%}
+.tre .lamp.lit{background:#2EE07A;box-shadow:0 0 34px #2EE07A,inset 0 -6px 0 rgba(0,0,0,.2)}
+.tre .lamp.bad{background:#D2382D}
 .ear{width:150px;aspect-ratio:1;border-radius:50%;border:3px solid rgba(255,255,255,.25);display:grid;place-items:center}
 .ear::after{content:"";width:46px;aspect-ratio:1;border-radius:50%;background:rgba(255,255,255,.25)}
 .ear.ring{border-color:var(--amber)} .ear.ring::after{background:var(--amber)}
@@ -539,6 +543,29 @@ def({...RT,id:'luces',cat:C1,name:'Luces de salida',desc:'Cinco luces se enciend
   build(v){v.innerHTML='<div class="lights">'+'<i></i>'.repeat(5)+'</div>'},reset(v){v.querySelectorAll('i').forEach(l=>l.classList.remove('on'))},
   arm(v,api){const ls=[...v.querySelectorAll('i')];ls.forEach((l,i)=>later(()=>l.classList.add('on'),(i+1)*900));
     later(()=>{ls.forEach(l=>l.classList.remove('on'));api.fire()},5*900+rand(300,2800))}},d)});
+def({...RT,ref:false,id:'tre',cat:C1,name:'Reacción de elección (TRE)',metric:'tiempo medio de reacción de elección',desc:'Cuatro luces repartidas: toca la que se encienda lo antes posible.',
+ run:done=>{const ctl=settings({pickRounds:true,N:10});intro('Hay cuatro luces repartidas por la pantalla. Tras una espera variable se enciende una al azar: tócala lo más rápido que puedas. Tocar antes de tiempo cuenta como anticipación y tocar otra luz, como error. En el ordenador usa las teclas 1 a 4.',()=>{
+  stage.innerHTML='<div class="vis field tre">'+[0,1,2,3].map(k=>`<button class="lamp l${k}" data-k="${k}" aria-label="Luz ${k+1}"></button>`).join('')+'</div><div class="msg small"><span></span></div>';
+  const f=stage.querySelector('.tre'),msg=stage.querySelector('.msg span'),L=[...f.querySelectorAll('.lamp')];
+  const N=ctl.rounds.get();let i=0,phase='wait',t0=0,on=-1,err=0,ant=0,miss=0;const rts=[];setProgress(0,N);
+  const off=()=>L.forEach(b=>b.classList.remove('lit','bad'));
+  const finish=()=>{phase='done';off();const s=[...rts].sort((a,b)=>a-b);const med=s.length?(s.length%2?s[(s.length-1)/2]:(s[s.length/2-1]+s[s.length/2])/2):null;
+    done({score:mean(rts),detail:`${rts.length} de ${N} intentos correctos. Mediana: ${med==null?'—':Math.round(med)+' ms'}. ${pl(err,'error','errores')}, ${pl(miss,'sin respuesta','sin respuesta')} y ${pl(ant,'anticipación','anticipaciones')}.`})};
+  const trial=()=>{if(i>=N)return finish();off();phase='wait';msg.textContent='Atento…';
+    later(()=>{on=ri(0,3);L[on].classList.add('lit');phase='go';t0=now();msg.textContent='';
+      later(()=>{if(phase!=='go')return;phase='res';miss++;i++;setProgress(i,N);off();feedback(false);msg.textContent='Sin respuesta';later(trial,800)},2000)},rand(1000,3000))};
+  const tap=k=>{
+    if(phase==='wait'){ant++;clearTimers();off();feedback(false);msg.textContent='Anticipación: espera a que se encienda la luz.';phase='pause';later(trial,1100);return}
+    if(phase!=='go')return;
+    const rt=now()-t0;phase='res';clearTimers();i++;setProgress(i,N);
+    if(k===on){rts.push(rt);feedback(true);msg.textContent=Math.round(rt)+' ms'}
+    else{err++;feedback(false);if(k>=0)L[k].classList.add('bad');msg.textContent='Luz equivocada'}
+    later(()=>{off();trial()},700)};
+  L.forEach(b=>b.onpointerdown=e=>{e.preventDefault();e.stopPropagation();tap(+b.dataset.k)});
+  stage.onpointerdown=e=>{e.preventDefault();tap(-1)};
+  keyHandler=e=>{const k='1234'.indexOf(e.key);if(k>=0)tap(k)};
+  trial();
+ },ctl)}});
 def({...RT,id:'parada',cat:C1,name:'Parada en seco',desc:'La bola se mueve. Toca solo cuando se pare y se ponga verde.',
  run:d=>simpleRT({attempts:5,intro:'La bola rebota. Toca solo cuando se detenga y se vuelva verde.',
   build(v){v.innerHTML='<div class="box"><i class="ball"></i></div>'},
