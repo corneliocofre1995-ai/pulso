@@ -352,7 +352,7 @@ function fitStage(){
 }
 window.addEventListener('resize',()=>{if(current)fitStage()});
 function settings(cfg){const id=current&&current.id;const c={};
-  if(cfg.pickRounds){let R=Math.min(20,Math.max(5,store.get('pulso:rounds:'+id)||cfg.N||10));c.rounds={get:()=>R,set:v=>{R=v;store.set('pulso:rounds:'+id,v)}}}
+  if(cfg.pickRounds){let R=Math.min(20,Math.max(1,store.get('pulso:rounds:'+id)||cfg.N||10));c.rounds={get:()=>R,set:v=>{R=v;store.set('pulso:rounds:'+id,v)}}}
   if(cfg.sizes){let S=store.get('pulso:grid:'+id);if(S!==3&&S!==4)S=3;c.size={get:()=>S,set:v=>{S=v;store.set('pulso:grid:'+id,v)}}}
   return c}
 function intro(text,start,ctl){
@@ -361,7 +361,7 @@ function intro(text,start,ctl){
   const rb=rounds?`<div class="rounds"><button data-r="-1" aria-label="Menos rondas">−</button><span><b id="rN">${rounds.get()}</b>rondas</span><button data-r="1" aria-label="Más rondas">+</button></div>`:'';
   stage.innerHTML=`<div class="vis"><div class="msg intro"><span>${text}</span>${sb}${rb}<span class="tap">Toca para empezar</span></div></div>`;
   const go=()=>{stage.onpointerdown=null;keyHandler=null;countdown(start)};
-  const step=d=>{const v=Math.min(20,Math.max(5,rounds.get()+d));rounds.set(v);$('#rN').textContent=v};
+  const step=d=>{const v=Math.min(20,Math.max(1,rounds.get()+d));rounds.set(v);$('#rN').textContent=v};
   if(rounds)stage.querySelectorAll('.rounds button').forEach(b=>b.onpointerdown=e=>{e.preventDefault();e.stopPropagation();step(+b.dataset.r)});
   if(size)stage.querySelectorAll('.seg button').forEach(b=>b.onpointerdown=e=>{e.preventDefault();e.stopPropagation();size.set(+b.dataset.s);
     stage.querySelectorAll('.seg button').forEach(x=>x.setAttribute('aria-pressed',x===b))});
@@ -547,7 +547,7 @@ def({...RT,id:'luces',cat:C1,name:'Luces de salida',desc:'Cinco luces se enciend
 def({...RT,ref:false,id:'tre',cat:C1,name:'Reacción de elección (TRE)',metric:'tiempo medio de reacción de elección',desc:'De 4 a 8 luces: toca la que se encienda en verde lo antes posible.',
  run:done=>{
   const rk='pulso:rounds:tre',lk='pulso:lamps:tre',mk='pulso:mode:tre';
-  let R=Math.min(20,Math.max(5,store.get(rk)||10)),NL=Math.min(8,Math.max(4,store.get(lk)||4)),MODE=store.get(mk)==='red'?'red':'normal';
+  let R=Math.min(20,Math.max(1,store.get(rk)||10)),NL=Math.min(8,Math.max(4,store.get(lk)||4)),MODE=store.get(mk)==='red'?'red':'normal';
   const text='Hay varias luces repartidas por la pantalla. Tras una espera variable se enciende una al azar: si es verde, tócala lo más rápido que puedas. En el modo con luz roja, a veces se enciende una luz roja: no la toques. En el ordenador usa las teclas 1 a 8.';
   stage.innerHTML=`<div class="vis"><div class="msg intro"><span>${text}</span>
     <div class="seg">${[['normal','Normal'],['red','Con luz roja']].map(([v,t])=>`<button data-m="${v}" aria-pressed="${MODE===v}">${t}</button>`).join('')}</div>
@@ -557,7 +557,7 @@ def({...RT,ref:false,id:'tre',cat:C1,name:'Reacción de elección (TRE)',metric:
   stage.querySelectorAll('.rounds').forEach(box=>{const c=box.dataset.c;
     box.querySelectorAll('button').forEach(b=>b.onpointerdown=e=>{e.preventDefault();e.stopPropagation();const d=+b.dataset.d;
       if(c==='l'){NL=Math.min(8,Math.max(4,NL+d));store.set(lk,NL);$('#nL').textContent=NL}
-      else{R=Math.min(20,Math.max(5,R+d));store.set(rk,R);$('#nR').textContent=R}})});
+      else{R=Math.min(20,Math.max(1,R+d));store.set(rk,R);$('#nR').textContent=R}})});
   stage.querySelectorAll('.seg button').forEach(b=>b.onpointerdown=e=>{e.preventDefault();e.stopPropagation();MODE=b.dataset.m;store.set(mk,MODE);
     stage.querySelectorAll('.seg button').forEach(x=>x.setAttribute('aria-pressed',x===b))});
   const play=()=>{
